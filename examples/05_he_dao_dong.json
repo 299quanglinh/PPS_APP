@@ -1,0 +1,14 @@
+{
+  "tool": "Phương trình vi phân",
+  "method": "RK4",
+  "values": {
+    "expr": "y; -x",
+    "initial": "1 0",
+    "a": "0",
+    "b": "10",
+    "h": "0.05",
+    "tol": "1e-10"
+  },
+  "x": "",
+  "y": ""
+}

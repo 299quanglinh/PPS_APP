@@ -1,0 +1,15 @@
+{
+  "tool": "Tích phân",
+  "method": "Simpson",
+  "values": {
+    "expr": "sin(x)",
+    "a": "0",
+    "b": "3.141592653589793",
+    "n": "20",
+    "tol": "1e-9",
+    "bound": "",
+    "source": "Hàm"
+  },
+  "x": "",
+  "y": ""
+}

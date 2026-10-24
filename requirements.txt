@@ -1,0 +1,6 @@
+numpy==2.3.4
+scipy==1.17.1
+sympy==1.14.0
+matplotlib==3.10.8
+openpyxl==3.1.5
+pillow==12.3.0

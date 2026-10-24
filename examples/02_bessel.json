@@ -1,0 +1,10 @@
+{
+  "tool": "Nội suy đa thức",
+  "method": "Bessel",
+  "values": {
+    "target": "1.5",
+    "order": "1"
+  },
+  "x": "0 1 2 3",
+  "y": "0 1 4 9"
+}

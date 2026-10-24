@@ -1,0 +1,3 @@
+preset = "basic"
+project-includes = ["main.py", "pps/**/*.py", "tests/**/*.py"]
+python-interpreter-path = ".venv/Scripts/python.exe"
