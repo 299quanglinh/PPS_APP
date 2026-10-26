@@ -151,6 +151,14 @@ class Report:
         return self
 
     def text(self):
+        if self.presentation.get('blocks'):
+            out=[self.title,'='*64]
+            for kind,value in self.presentation['blocks']:
+                if kind=='table':
+                    name,headers,rows=self.tables[value]
+                    out.append(Report(name,tables=[(name,headers,rows)]).text())
+                else:out.append(str(value))
+            return '\n\n'.join(out)
         out = [self.title, '=' * 64, *self.lines]
         for name, headers, rows in self.tables:
             cells=[list(headers)]+[[fmt(v) for v in row] for row in rows[:600]]

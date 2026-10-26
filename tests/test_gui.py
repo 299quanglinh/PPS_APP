@@ -36,7 +36,8 @@ class GuiTests(unittest.TestCase):
             wb=Workbook();ws=wb.active;ws.append(['x','y'])
             for x in range(3):ws.append([x,x*x])
             wb.save(source)
-            self.app.select_tool('Nội suy đa thức');self.app.method.set('Newton bất kỳ');self.app.show_form()
+            self.app.select_tool('Nội suy đa thức');self.app.method.set('Newton');self.app.show_form()
+            self.app.form['newton_nodes'].set('Mốc bất kỳ')
             with patch('pps.gui.filedialog.askopenfilename',return_value=str(source)):
                 self.app.import_data()
             s=self.app.snapshot();self.assertEqual(s['x'],'0.0 1.0 2.0')
@@ -58,8 +59,9 @@ class GuiTests(unittest.TestCase):
         import numpy as np
         for nodes in ('Mốc cách đều','Mốc bất kỳ'):
             for direction in ('Tiến','Lùi'):
-                r=dispatch('Newton',nodes,{'target':'1.5','order':'0','direction':direction},'0 1 2 3','1 2 5 10')
+                r=dispatch('Nội suy đa thức','Newton',{'target':'1.5','order':'0','direction':direction,'newton_nodes':nodes},'0 1 2 3','1 2 5 10')
                 self.assertAlmostEqual(r.value(1.5),3.25)
+        self.assertNotIn('Newton',TOOLS)
         r=dispatch('Newton','Mốc bất kỳ',{'target':'1.5','order':'0','direction':'Lùi'},'0 0.7 2 3','1 1.49 5 10')
         self.assertAlmostEqual(r.value(1.5),3.25)
         set_display_digits(0);self.assertEqual(fmt(100), '100')
@@ -70,6 +72,12 @@ class GuiTests(unittest.TestCase):
         self.app.method.set('Gauss I');self.app.show_form()
         self.assertIsNone(self.app.report)
         self.assertEqual(len(self.app.tree.get_children()),0)
+
+    def test_interpolation_builds_polynomial_without_a_target(self):
+        report=dispatch('Nội suy đa thức','Lagrange',{'target':'','order':'0'},
+                        '1.2 1.5 1.7 1.8 2.1 2.3',
+                        '.892 1.179 1.358 1.445 1.688 1.839')
+        self.assertAlmostEqual(report.value(0), -34011/5500, places=13)
 
     def test_async_calculate_button(self):
         self.app.select_tool('Nội suy đa thức');self.app.reset_example();self.app.run()

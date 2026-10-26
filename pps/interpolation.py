@@ -1,12 +1,33 @@
 """Polynomial, central and inverse interpolation; splines and regression."""
 import math
 import numpy as np
+import sympy as sp
 from numpy.polynomial import Polynomial as Poly
 from scipy.interpolate import CubicSpline, PPoly
 from .common import Report, points, spacing, difference, fmt, polynomial_text, function
 
 METHODS = ['Lagrange', 'Newton bất kỳ', 'Newton tiến', 'Newton lùi',
            'Gauss I', 'Gauss II', 'Stirling', 'Bessel']
+
+
+def _lagrange_exact_decimal_polynomial(x, y):
+    """Return the expanded Lagrange polynomial from the displayed decimals.
+
+    Decimal input such as ``1.2`` is intended as the rational number 6/5, not
+    the nearby IEEE-754 binary float.  Expanding the basis in rational
+    arithmetic prevents the small coefficient drift that is otherwise visible
+    when a user compares a hand calculation with the displayed polynomial.
+    """
+    if len(x) > 20:
+        return None
+    symbol = sp.Symbol('x')
+    try:
+        nodes = [(sp.Rational(str(float(xi))), sp.Rational(str(float(yi))))
+                 for xi, yi in zip(x, y)]
+        coefficients = sp.Poly(sp.interpolate(nodes, symbol), symbol).all_coeffs()
+        return Poly([float(value) for value in reversed(coefficients)])
+    except (TypeError, ValueError, sp.PolynomialError):
+        return None
 
 
 def interpolate(x, y, method='Lagrange', target=None, derivative=0):
@@ -27,6 +48,7 @@ def interpolate(x, y, method='Lagrange', target=None, derivative=0):
     a = difference(x, y, method.startswith('Newton bất kỳ'))
     q, product = Poly([0.]), Poly([1.])
     steps, products = [], []
+    lagrange_data = None
     if method == 'Lagrange':
         for i in range(n):
             basis = Poly.fromroots(np.delete(x, i))
@@ -34,6 +56,17 @@ def interpolate(x, y, method='Lagrange', target=None, derivative=0):
             q += c*basis
             steps.append([i, c, polynomial_text(basis)])
             products.append(basis.coef)
+        exact_q = _lagrange_exact_decimal_polynomial(x, y)
+        if exact_q is not None:
+            q = exact_q
+        matrix = [[1.0 if i == j else x[j] - x[i] for j in range(n)]
+                  for i in range(n)]
+        denominators = np.asarray([np.prod(row) for row in matrix])
+        weights = y / denominators
+        prefix_products = [Poly([1.])]
+        for node in x:
+            prefix_products.append(prefix_products[-1] * Poly([-node, 1.]))
+        lagrange_data = matrix, weights, prefix_products
     elif method in ('Newton bất kỳ', 'Newton bất kỳ lùi', 'Newton tiến', 'Newton lùi', 'Gauss I', 'Gauss II'):
         if method == 'Gauss I':
             order = [0] + [v for r in range(1, center+1) for v in (r, -r)]
@@ -76,10 +109,12 @@ def interpolate(x, y, method='Lagrange', target=None, derivative=0):
     result = Report(method, value=p, scatter=(x,y))
     if dropped: result.lines.append(f'Đã bỏ {dropped} mốc x trùng, giữ tung độ đầu tiên.')
     if normalized:
-        result.lines += [f'x_0 = {fmt(origin)}; h = {fmt(h)}; t = (x - ({fmt(origin)}))/{fmt(h)}',
-                         'P(x_0+th) = '+polynomial_text(q, 't')]
-    result.lines += ['P(x) = '+polynomial_text(p),
-                     'Hệ số hiển thị làm tròn; phép tính dùng hệ số đầy đủ.']
+        origin_label = 'x_n' if method == 'Newton lùi' else 'x_0'
+        result.lines += [f'{origin_label} = {fmt(origin)}; h = {fmt(h)}; t = (x - ({fmt(origin)}))/{fmt(h)}',
+                         f'P({origin_label}+th) = '+polynomial_text(q, 't')]
+    if method not in ('Newton tiến', 'Newton lùi'):
+        result.lines.append('P(x) = '+polynomial_text(p))
+    result.lines.append('Hệ số hiển thị làm tròn; phép tính dùng hệ số đầy đủ.')
     err = np.max(np.abs(q((x-origin)/h) - y)) if normalized else np.max(np.abs(p(x)-y))
     result.lines.append('Sai lệch lớn nhất tại các mốc: '+fmt(err, 12))
     if err > 1e-6 * max(1, np.max(np.abs(y))):
@@ -89,13 +124,37 @@ def interpolate(x, y, method='Lagrange', target=None, derivative=0):
         val = q.deriv(derivative)((target-origin)/h)/h**derivative if normalized else p.deriv(derivative)(target)
         result.lines.append(f'P^({derivative})({fmt(target)}) = {fmt(val)}')
         if target < x[0] or target > x[-1]: result.lines.append('Điểm tính ngoài tập mốc: đang ngoại suy.')
-    result.table('Bảng tỷ sai phân' if method.startswith('Newton bất kỳ') else 'Bảng sai phân tiến',
-                 ['x','y']+[f'bậc {k}' for k in range(1,n)],
-                 [[x[j]]+[None if np.isnan(v) else v for v in a[j]] for j in range(n)])
-    if products:
-        if method == 'Lagrange':
-            table_name = 'Bảng tích: tử số cơ sở Lagrange — hệ số theo bậc giảm dần'
-        elif method.startswith('Newton bất kỳ'):
+    if method != 'Lagrange':
+        result.table('Bảng tỷ sai phân' if method.startswith('Newton bất kỳ') else 'Bảng sai phân tiến',
+                     ['x','y']+[f'bậc {k}' for k in range(1,n)],
+                     [[x[j]]+[None if np.isnan(v) else v for v in a[j]] for j in range(n)])
+    if method == 'Lagrange':
+        matrix, weights, prefix_products = lagrange_data
+        width = n + 1
+        def pad(coefficients):
+            values = coefficients.coef if isinstance(coefficients, Poly) else coefficients
+            return list(reversed(values)) + [None] * (width - len(values))
+        def pad_prefix_product(coefficients):
+            # Bảng tích của ứng dụng gốc ghi hệ số theo bậc tăng dần:
+            # cột 0 là hệ số tự do, cột cuối là bậc cao nhất.  Vì vậy
+            # w_0 = 1 phải nằm ở cột cuối, tạo tam giác chụm về bên trái.
+            values = coefficients.coef if isinstance(coefficients, Poly) else coefficients
+            return [None] * (width - len(values)) + list(values)
+        rows = [[*row, None, 'Ma trận (x_j - x_i)' if i == 0 else ''] for i, row in enumerate(matrix)]
+        rows += [[None] * width + ['']]
+        rows += [[*weights, None, 'Hệ số D_i = y_i / ∏(x_i - x_j)']]
+        rows += [[None] * width + ['']]
+        rows += [[*pad_prefix_product(product), 'Bảng tích' if i == 0 else 'w_(n+1)' if i == n else '']
+                 for i, product in enumerate(prefix_products)]
+        rows += [[None] * width + ['']]
+        rows += [[*pad(basis), 'Bảng thương W_i = w_(n+1)/(x-x_i)' if i == 0 else '']
+                 for i, basis in enumerate(products)]
+        rows += [[None] * width + ['']]
+        rows += [[*pad(p), 'Hệ số đa thức nội suy P(x)']]
+        result.table('Các bước lập đa thức Lagrange',
+                     [f'Cột {k}' for k in range(width)] + ['Ghi chú'], rows)
+    elif products:
+        if method.startswith('Newton bất kỳ'):
             table_name = 'Bảng tích: đa thức cơ sở Newton — hệ số theo bậc giảm dần'
         else:
             table_name = 'Bảng tích: chưa chia giai thừa — hệ số theo bậc giảm dần'
@@ -213,6 +272,11 @@ def spline(x,y,kind='Cubic tự nhiên',left=0.,right=0.,target=None):
         pp=CubicSpline(x,y,bc_type=bc)
     r=Report('Spline — '+kind, ['Mỗi đoạn dùng biến (x - mốc trái).'],scatter=(x,y),value=pp)
     r.presentation={'formulas':[],'omit_prefixes':('[','S(')}
+    if kind.startswith('Cubic'):
+        from .math_view import cubic_spline_presentation
+        cubic_spline_presentation(r,x,y,pp,kind,left,right,target)
+        grid=np.linspace(x[0],x[-1],400); r.curves=[(grid,pp(grid),kind)]
+        return r
     for i in range(len(h)):
         r.lines.append(f'[{fmt(x[i])}, {fmt(x[i+1])}]: '+polynomial_text(Poly(pp.c[:,i][::-1]),f'(x-({fmt(x[i])}))'))
         r.presentation['formulas'].append((f'Đoạn [{fmt(x[i])}, {fmt(x[i+1])}]',split_equation(rf'S_{{{i}}}(x)',poly_latex(Poly(pp.c[:,i][::-1]),rf'(x-({fmt(x[i])}))'))))
@@ -226,7 +290,15 @@ def spline(x,y,kind='Cubic tự nhiên',left=0.,right=0.,target=None):
 
 def least_squares(x,y,kind='Tuyến tính theo cơ sở',basis=('1','x')):
     from .math_view import symbolic_latex,split_equation
-    x,y,_=points(x,y,2); yshift=xshift=0.; sign=1.
+    # Repeated abscissas are separate observations in regression, not duplicate
+    # interpolation nodes. Dropping them changes the least-squares objective.
+    x,y=np.asarray(x,dtype=float),np.asarray(y,dtype=float)
+    if x.ndim!=1 or y.ndim!=1 or len(x)!=len(y) or len(x)<2:
+        raise ValueError('Dãy x và y phải cùng độ dài, có ít nhất 2 điểm.')
+    if not np.all(np.isfinite(x)) or not np.all(np.isfinite(y)):
+        raise ValueError('Dữ liệu phải hữu hạn.')
+    indices=np.argsort(x,kind='stable');x,y=x[indices],y[indices]
+    yshift=xshift=0.; sign=1.
     if kind!='Tuyến tính theo cơ sở':
         if min(y)<=0<=max(y):
             up=abs(min(y))+1; down=-(abs(max(y))+1)

@@ -49,6 +49,94 @@ def split_equation(lhs,rhs,width=100):
     return lines
 
 
+def cubic_spline_presentation(report,x,y,pp,kind,left,right,target):
+    """A worked solution following the alpha, theta, v notation in the course notes."""
+    from numpy.polynomial import Polynomial
+    from .common import polynomial_text
+    h=np.diff(x);dy=np.diff(y);d=dy/h;n=len(h)
+    matrix=np.zeros((n+1,n+1));rhs=np.zeros(n+1)
+    for i in range(1,n):
+        matrix[i,i-1:i+2]=[h[i-1],2*(h[i-1]+h[i]),h[i]]
+        rhs[i]=6*(d[i]-d[i-1])
+    clamped=kind=='Cubic kẹp'
+    if clamped:
+        matrix[0,:2]=[2*h[0],h[0]];rhs[0]=6*(d[0]-left)
+        matrix[-1,-2:]=[h[-1],2*h[-1]];rhs[-1]=6*(right-d[-1])
+    else:
+        matrix[0,0]=matrix[-1,-1]=1
+        rhs[0]=0 if kind=='Cubic tự nhiên' else left
+        rhs[-1]=0 if kind=='Cubic tự nhiên' else right
+    alpha=np.linalg.solve(matrix,rhs)
+    theta=d-h*(alpha[1:]-alpha[:-1])/6
+    v=y[:-1]-alpha[:-1]*h*h/6
+    blocks=[]
+    def heading(s):blocks.append(('heading',s))
+    def body(s):blocks.append(('text',s))
+    def formula(s):blocks.append(('formula',s))
+    def table(name,headers,rows):
+        report.table(name,headers,rows);blocks.append(('table',len(report.tables)-1))
+    def equation(row,b):
+        terms=[]
+        for j,c in enumerate(row):
+            if c:
+                term=('' if fmt(abs(c))=='1' else fmt(abs(c)))+rf'\alpha_{{{j}}}'
+                terms.append(('-' if c<0 else '+',term))
+        return (('-' if terms[0][0]=='-' else '')+terms[0][1]+''.join(' '+s+' '+t for s,t in terms[1:])+'='+fmt(b))
+    heading('1. Sắp các cặp dữ liệu theo x tăng dần')
+    body('Giữ nguyên từng cặp (x, y); các hệ số chỉ làm tròn khi hiển thị.')
+    body(f'Có {n+1} mốc x_0 đến x_{n}, tạo thành {n} đoạn và {n-1} nút trong; n = {n}.')
+    table('Bảng dữ liệu',['i','x_i','y_i'],[[i,x[i],y[i]] for i in range(n+1)])
+    heading('2. Tính khoảng mốc và hệ số góc')
+    body(f'Chỉ số đoạn: i = 0, ..., n−1 (trong bài: 0 đến {n-1}).')
+    formula(r'h_i=x_{i+1}-x_i,\quad \Delta y_i=y_{i+1}-y_i,\quad d_i=\frac{\Delta y_i}{h_i}')
+    table('Các đại lượng trên từng đoạn',['i','h_i',r'\Delta y_i','d_i'],[[i,h[i],dy[i],d[i]] for i in range(n)])
+    heading('3. Đặt ẩn và biểu diễn spline theo tài liệu')
+    formula(r'\alpha_i=S^{\prime\prime}(x_i),\qquad i=0,\ldots,n')
+    body(f'Mỗi nhánh S_i nằm trên [x_i, x_(i+1)]; các hệ số θ_i, v_i dùng i = 0, ..., n−1 (0 đến {n-1}).')
+    formula(r'S_i(x)=-\frac{\alpha_i}{6h_i}(x-x_{i+1})^3+\frac{\alpha_{i+1}}{6h_i}(x-x_i)^3+\theta_i(x-x_i)+v_i')
+    formula(r'\theta_i=d_i-\frac{h_i}{6}(\alpha_{i+1}-\alpha_i),\qquad v_i=y_i-\frac{\alpha_i h_i^2}{6}')
+    heading('4. Lập hệ từ tính liên tục của đạo hàm bậc nhất')
+    body(f'Chỉ xét nút trong: i = 1, ..., n−1 (trong bài: 1 đến {n-1}). Không thế i = 0 vào công thức này.')
+    formula(r'h_{i-1}\alpha_{i-1}+2(h_{i-1}+h_i)\alpha_i+h_i\alpha_{i+1}=6(d_i-d_{i-1})')
+    formula(r'i=1,\ldots,n-1')
+    for i in range(1,n):formula(equation(matrix[i],rhs[i]))
+    heading('5. Ghép điều kiện biên và giải hệ')
+    if clamped:
+        formula(rf'S^\prime({fmt(x[0])})={fmt(left)},\qquad S^\prime({fmt(x[-1])})={fmt(right)}')
+        formula(r'2h_0\alpha_0+h_0\alpha_1=6(d_0-S^\prime(x_0))')
+        formula(r'h_{n-1}\alpha_{n-1}+2h_{n-1}\alpha_n=6(S^\prime(x_n)-d_{n-1})')
+    else:
+        formula(rf'\alpha_0=S^{{\prime\prime}}({fmt(x[0])})={fmt(rhs[0])}')
+        formula(rf'\alpha_{{{n}}}=S^{{\prime\prime}}({fmt(x[-1])})={fmt(rhs[-1])}')
+    formula(equation(matrix[0],rhs[0]));formula(equation(matrix[-1],rhs[-1]))
+    table('Hệ phương trình Aα = b',[rf'\alpha_{{{i}}}' for i in range(n+1)]+['b'],[list(row)+[b] for row,b in zip(matrix,rhs)])
+    # Show the actual tridiagonal elimination used to recover the solution.
+    diag=np.diag(matrix).copy();reduced=rhs.copy()
+    body('Khử lần lượt phần tử dưới đường chéo, rồi thế ngược từ phương trình cuối.')
+    for i in range(1,n+1):
+        factor=matrix[i,i-1]/diag[i-1]
+        diag[i]-=factor*matrix[i-1,i];reduced[i]-=factor*reduced[i-1]
+    upper=np.diag(diag)+np.diag(np.diag(matrix,1),1)
+    table('Hệ sau khử tiến',[rf'\alpha_{{{i}}}' for i in range(n+1)]+['b'],[list(row)+[b] for row,b in zip(upper,reduced)])
+    for i in range(n,-1,-1):formula(rf'\alpha_{{{i}}}={fmt(alpha[i])}')
+    heading('6. Tính θ_i và v_i')
+    body(f'Tính theo từng đoạn: i = 0, ..., n−1 (trong bài: 0 đến {n-1}); bước này có dùng i = 0.')
+    formula(rf'\theta_0=({fmt(d[0])})-\frac{{{fmt(h[0])}}}{{6}}[({fmt(alpha[1])})-({fmt(alpha[0])})]={fmt(theta[0])}')
+    formula(rf'v_0={fmt(y[0])}-\frac{{({fmt(alpha[0])})({fmt(h[0])})^2}}{{6}}={fmt(v[0])}')
+    table('Hệ số theo ký hiệu tài liệu',['i',r'\alpha_i',r'\alpha_{i+1}',r'\theta_i','v_i'],[[i,alpha[i],alpha[i+1],theta[i],v[i]] for i in range(n)])
+    heading('7. Thế hệ số và viết từng nhánh spline')
+    for i in range(n):
+        body(f'Đoạn [{fmt(x[i])}, {fmt(x[i+1])}], đặt u_{i} = x - ({fmt(x[i])}).')
+        formula(rf'S_{{{i}}}(x)=-\frac{{({fmt(alpha[i])})}}{{6({fmt(h[i])})}}(x-({fmt(x[i+1])}))^3+\frac{{({fmt(alpha[i+1])})}}{{6({fmt(h[i])})}}(x-({fmt(x[i])}))^3')
+        formula(rf'\qquad +({fmt(theta[i])})(x-({fmt(x[i])}))+({fmt(v[i])})')
+        for tex in split_equation(rf'S_{{{i}}}(x)',poly_latex(Polynomial(pp.c[:,i][::-1]),rf'u_{{{i}}}')):formula(tex)
+    if target is not None:
+        heading('8. Thay giá trị')
+        formula(rf'S({fmt(target)})={fmt(pp(target))}')
+        if not x[0]<=target<=x[-1]:body('Điểm tính ngoài bảng: ngoại suy bằng đoạn đầu/cuối.')
+    report.presentation={'blocks':blocks}
+
+
 def difference_model(method,x,y,a,center):
     central=method in ('Gauss I','Gauss II','Stirling','Bessel')
     n=len(x);offset=center if central else 0;selected=set()
@@ -72,7 +160,7 @@ def difference_model(method,x,y,a,center):
 
 
 def difference_image(model):
-    """Forward differences share their starting node row; the triangle narrows upward."""
+    """Render forward differences from their starting row, divided differences from their ending row."""
     x,y,a=model['x'],model['y'],model['a'];n=len(x);offset=model['offset'];divided=model['method'].startswith('Newton bất kỳ')
     # Bound rendered size; full numeric table remains available in export.
     count=min(n,18);degree=min(n-1,10);cw=145;rh=82;top=52
@@ -108,7 +196,10 @@ def difference_image(model):
         paste(rf'y_{{{idx}}}',(xedges[2]+xedges[3])/2,mid-14)
         paste(fmt(y[j]),(xedges[2]+xedges[3])/2,mid+16)
         for k in range(1,min(degree,n-j-1)+1):
-            row=j
+            # The original PPS grid anchors a divided difference f[x_i,...,x_{i+k}]
+            # at its final node x_{i+k}, making the triangle converge downward.
+            # Finite forward differences deliberately keep their starting-node row.
+            row=j+k if divided else j
             if row>=count:continue
             cx=(xedges[k+2]+xedges[k+3])/2;cy=top+(row+.5)*rh
             symbol=rf'f[x_{{{idx}}},\ldots,x_{{{idx+k}}}]' if divided else (rf'\Delta y_{{{idx}}}' if k==1 else rf'\Delta^{{{k}}}y_{{{idx}}}')
@@ -141,13 +232,16 @@ def interpolation_presentation(result,method,x,y,a,q,p,origin,h,center,normalize
     else:display=[template]
     formulas.append(('Công thức '+method,display))
     if normalized:formulas.append(('Đa thức theo biến t',split_equation('P(x_n+th)' if method=='Newton lùi' else 'P(x_0+th)',poly_latex(q,'t'))))
-    formulas.append(('Đa thức theo biến x',split_equation('P(x)',poly_latex(p))))
+    if method not in ('Newton tiến','Newton lùi'):
+        formulas.append(('Đa thức theo biến x',split_equation('P(x)',poly_latex(p))))
     if target is not None:
         val=q.deriv(derivative)((target-origin)/h)/h**derivative if normalized else p.deriv(derivative)(target)
         label='P' if derivative==0 else "P'" if derivative==1 else "P''" if derivative==2 else rf'P^{{({derivative})}}'
         formulas.append(('Thay giá trị',[rf'{label}({fmt(target)})={fmt(val)}']))
-    result.presentation=dict(formulas=formulas,difference=difference_model(method,x,y,a,center),
-                             omit_prefixes=('x_0 =','P(x_0+th)','P(x) =','P^('))
+    result.presentation=dict(formulas=formulas,
+                             omit_prefixes=('x_0 =','x_n =','P(x_0+th)','P(x_n+th)','P(x) =','P^('))
+    if method != 'Lagrange':
+        result.presentation['difference'] = difference_model(method,x,y,a,center)
 
 
 def product_formula(report, method, products, center):
@@ -220,7 +314,7 @@ def table_display(report,index):
             rows=[[r[0]]+list(reversed(r[1:])) for r in rows]
         if report.title == 'Lagrange':
             name='Bảng tích tử số cơ sở Lagrange — bậc giảm dần'
-        elif report.title == 'Newton bất kỳ':
+        elif report.title.startswith('Newton bất kỳ'):
             name='Bảng tích đa thức cơ sở Newton — bậc giảm dần'
         else:
             name='Bảng tích — chưa chia giai thừa, bậc giảm dần'
@@ -281,6 +375,15 @@ class MathDocument(ttk.Frame):
 
     def show(self,report):
         self.begin();self.text.insert('end',report.title+'\n','title')
+        if report.presentation.get('blocks'):
+            for kind,value in report.presentation['blocks']:
+                if kind=='formula':self.picture(math_image(value))
+                elif kind=='table':
+                    self.text.insert('end',report.tables[value][0]+'\n','heading')
+                    self.picture(table_image(report,value))
+                else:self.text.insert('end',value+'\n','heading' if kind=='heading' else 'body')
+            self.text.configure(state='disabled');self.text.yview_moveto(0);self.text.xview_moveto(0)
+            return
         for title,formulas in report.presentation.get('formulas',[]):
             self.text.insert('end',title+'\n','heading')
             for formula in formulas:self.picture(math_image(formula))
@@ -291,7 +394,10 @@ class MathDocument(ttk.Frame):
             name,headers,rows=table_display(report,i)
             self.text.insert('end',name+'\n','heading')
             if i==0 and report.presentation.get('difference'):
-                self.text.insert('end','Mốc x tăng từ trên xuống; sai phân cùng hàng với mốc bắt đầu, chụm lên trên.\nÔ viền xanh: sai phân dùng trong công thức (hai ô khi lấy trung bình).\nVới Gauss, STT là thứ tự kết nạp mốc trong bài giảng.\n','body')
+                if report.title.startswith('Newton bất kỳ'):
+                    self.text.insert('end','Mốc x tăng từ trên xuống; tỷ sai phân f[x_i,\\ldots,x_{i+k}] cùng hàng với mốc cuối x_{i+k}, chụm xuống dưới.\nÔ viền xanh: tỷ sai phân dùng trong công thức Newton.\n','body')
+                else:
+                    self.text.insert('end','Mốc x tăng từ trên xuống; sai phân cùng hàng với mốc bắt đầu, chụm lên trên.\nÔ viền xanh: sai phân dùng trong công thức (hai ô khi lấy trung bình).\nVới Gauss, STT là thứ tự kết nạp mốc trong bài giảng.\n','body')
             self.picture(table_image(report,i))
             if len(rows)>80 or len(headers)>12 or (i==0 and report.presentation.get('difference') and len(rows)>11):self.text.insert('end','Bảng trình bày rút gọn; chọn Dữ liệu dạng lưới hoặc xuất Excel để xem đầy đủ.\n','body')
         for title,formulas in report.presentation.get('after_tables',[]):
@@ -325,6 +431,15 @@ def export_html(report,path):
     parts=['<!doctype html><html lang="vi"><meta charset="utf-8"><title>'+html.escape(report.title)+'</title>',
            '<style>body{font:17px Segoe UI,sans-serif;color:#162d39;max-width:1200px;margin:40px auto;padding:20px}h2{margin-top:28px}img{display:block;margin:12px 0}section{overflow:auto} @media print{img{max-width:100%;height:auto}section{overflow:visible}}</style>',
            '<h1>'+html.escape(report.title)+'</h1>']
+    if report.presentation.get('blocks'):
+        for kind,value in report.presentation['blocks']:
+            if kind=='formula':parts.append('<section>'+embed(math_image(value))+'</section>')
+            elif kind=='table':parts.append('<h2>'+html.escape(report.tables[value][0])+'</h2><section>'+embed(table_image(report,value))+'</section>')
+            else:
+                tag='h2' if kind=='heading' else 'p'
+                parts.append('<'+tag+'>'+html.escape(value)+'</'+tag+'>')
+        parts.append('</html>');path.write_text('\n'.join(parts),encoding='utf-8')
+        return
     for title,formulas in report.presentation.get('formulas',[]):
         parts.append('<h2>'+html.escape(title)+'</h2><section>')
         parts.extend(embed(math_image(f)) for f in formulas);parts.append('</section>')

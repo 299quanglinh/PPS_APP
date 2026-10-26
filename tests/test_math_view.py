@@ -7,6 +7,15 @@ from pps.math_view import table_display,export_html,math_png,difference_image
 
 
 class MathViewTests(unittest.TestCase):
+    def test_equal_newton_presents_t_without_expanding_x(self):
+        for method,origin in [('Newton tiến','x_0'),('Newton lùi','x_n')]:
+            r=interpolate([9,10,11],[2,3,6],method)
+            self.assertIn(f'P({origin}+th)',r.text())
+            self.assertNotIn('P(x) =',r.text())
+            self.assertNotIn('Đa thức theo biến x',[title for title,_ in r.presentation['formulas']])
+            self.assertIn('Đa thức theo biến t',[title for title,_ in r.presentation['formulas']])
+            np.testing.assert_allclose(r.value([9,10,11]),[2,3,6])
+
     def test_gauss_indices_and_selected_differences(self):
         x=np.arange(5.)
         r=interpolate(x,x**3,'Gauss I',1.2)
@@ -18,24 +27,29 @@ class MathViewTests(unittest.TestCase):
         im=difference_image(m);self.assertGreater(im.width,500)
         self.assertFalse(any('P^{(0)}' in f for _,fs in r.presentation['formulas'] for f in fs))
 
-    def test_product_table_descends_without_mutating_numbers(self):
+    def test_lagrange_table_follows_the_original_app_workflow(self):
         r=interpolate([0,1,2],[1,2,5],'Lagrange')
-        original=list(r.tables[1][2][-1])
-        _,headers,rows=table_display(r,1)
-        self.assertEqual(headers,['k','x^2','x','1'])
-        self.assertEqual(rows[-1],original)
-        self.assertEqual(r.tables[1][2][-1],original)
+        self.assertEqual(len(r.tables),1)
+        name,headers,rows=table_display(r,0)
+        self.assertEqual(name,'Các bước lập đa thức Lagrange')
+        self.assertEqual(headers,['Cột 0','Cột 1','Cột 2','Cột 3','Ghi chú'])
+        notes=[row[-1] for row in rows]
+        self.assertIn('Ma trận (x_j - x_i)',notes)
+        self.assertIn('Bảng tích',notes)
+        self.assertIn('Bảng thương W_i = w_(n+1)/(x-x_i)',notes)
+        self.assertIn('Hệ số đa thức nội suy P(x)',notes)
 
     def test_two_tables_all_polynomial_methods(self):
         from pps.interpolation import METHODS
         for method in METHODS:
             x=np.arange(6. if method=='Bessel' else 5.)
             r=interpolate(x,x**3,method)
-            self.assertEqual(len(r.tables),2,method)
+            self.assertEqual(len(r.tables),1 if method=='Lagrange' else 2,method)
             self.assertNotIn('Các hệ số và tích phụ',r.text())
-            self.assertIn('bậc giảm dần',r.text())
-            self.assertEqual(r.tables[1][1][1],f'bậc {len(x)-1}')
-            self.assertEqual(len(r.tables[1][2]),len(x))
+            if method!='Lagrange':
+                self.assertIn('bậc giảm dần',r.text())
+                self.assertEqual(r.tables[1][1][1],f'bậc {len(x)-1}')
+                self.assertEqual(len(r.tables[1][2]),len(x))
             np.testing.assert_allclose(r.value(x),x**3,atol=1e-10)
 
     def test_unscaled_products_and_factorial_formula(self):

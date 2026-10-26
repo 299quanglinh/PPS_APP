@@ -24,3 +24,5 @@ Desktop.ini
 
 # Logs & temp
 *.log
+tmp/
+output/

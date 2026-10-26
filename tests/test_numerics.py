@@ -7,6 +7,12 @@ from pps.common import function, points, fmt
 
 
 class InterpolationTests(unittest.TestCase):
+    def test_lagrange_decimal_input_keeps_exact_display_coefficients(self):
+        x=[1.2,1.5,1.7,1.8,2.1,2.3]
+        y=[.892,1.179,1.358,1.445,1.688,1.839]
+        report=ip.interpolate(x,y,'Lagrange')
+        self.assertAlmostEqual(report.value(0), -34011/5500, places=13)
+
     def test_all_polynomial_methods_reproduce_known_polynomial(self):
         for method in ip.METHODS:
             with self.subTest(method=method):

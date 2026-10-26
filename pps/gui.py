@@ -22,8 +22,7 @@ def F(key,label,default='',help=''):
     return key,label,str(default),help
 
 TOOLS={
- 'Nội suy đa thức':(ip.METHODS,True),
- 'Newton':(['Mốc cách đều','Mốc bất kỳ'],True),
+ 'Nội suy đa thức':(['Lagrange','Newton','Gauss I','Gauss II','Stirling','Bessel'],True),
  'Spline':(['Tuyến tính','Bậc hai — biên trái','Bậc hai — biên phải','Cubic tự nhiên','Cubic kẹp','Cubic đạo hàm bậc hai'],True),
  'Bình phương tối thiểu':(['Tuyến tính theo cơ sở','Lũy thừa','Hàm mũ'],True),
  'Nội suy ngược':(['Lặp tiến','Lặp lùi'],True),
@@ -36,8 +35,13 @@ TOOLS={
 
 
 def fields(tool,method):
-    if tool=='Newton': return [F('direction','Hướng nội suy','Tiến'),F('target','Điểm cần tính x',1.5),F('order','Cấp đạo hàm (0 = giá trị hàm)',0)]
-    if tool=='Nội suy đa thức': return [F('target','Điểm cần tính x',1.5),F('order','Cấp đạo hàm (0 = giá trị hàm)',0)]
+    if tool=='Nội suy đa thức':
+        if method=='Newton':
+            return [F('newton_nodes','Loại mốc','Mốc cách đều','Mốc cách đều dùng sai phân tiến; mốc bất kỳ dùng tỷ sai phân.'),
+                    F('direction','Hướng nội suy','Tiến'),
+                    F('target','Điểm cần tính x',1.5),
+                    F('order','Cấp đạo hàm (0 = giá trị hàm)',0)]
+        return [F('target','Điểm cần tính x',1.5),F('order','Cấp đạo hàm (0 = giá trị hàm)',0)]
     if tool=='Spline':
         v=[F('target','Điểm cần tính x',1.5)]
         if method in ('Bậc hai — biên trái','Cubic kẹp','Cubic đạo hàm bậc hai'): v.append(F('left','Giá trị đạo hàm tại biên trái',0))
@@ -83,11 +87,16 @@ def dispatch(tool,method,values,xtext,ytext):
         return int(v)
     def optional(k): return num(k) if values.get(k,'').strip() else None
     def data(): return numbers(xtext),numbers(ytext)
-    if tool=='Newton':
+    if tool=='Newton':  # Tương thích bài tính JSON từ các bản ứng dụng trước.
         backward=values.get('direction','Tiến')=='Lùi'
         method=('Newton lùi' if backward else 'Newton tiến') if method=='Mốc cách đều' else ('Newton bất kỳ lùi' if backward else 'Newton bất kỳ')
-        return ip.interpolate(*data(),method,num('target'),integer('order'))
-    if tool=='Nội suy đa thức': return ip.interpolate(*data(),method,num('target'),integer('order'))
+        return ip.interpolate(*data(),method,optional('target'),integer('order'))
+    if tool=='Nội suy đa thức':
+        if method=='Newton':
+            backward=values.get('direction','Tiến')=='Lùi'
+            equal_grid=values.get('newton_nodes','Mốc cách đều')=='Mốc cách đều'
+            method=('Newton lùi' if backward else 'Newton tiến') if equal_grid else ('Newton bất kỳ lùi' if backward else 'Newton bất kỳ')
+        return ip.interpolate(*data(),method,optional('target'),integer('order'))
     if tool=='Spline': return ip.spline(*data(),method,num('left'),num('right'),num('target'))
     if tool=='Bình phương tối thiểu': return ip.least_squares(*data(),method,[v.strip() for v in values.get('basis','1;x').split(';') if v.strip()])
     if tool=='Nội suy ngược': return ip.inverse(*data(),num('target'),method=='Lặp lùi',num('tol'))
@@ -146,20 +155,17 @@ class App(tk.Tk):
         for label,cmd in [('Hướng dẫn',self.help),('Mở bài',self.load_project),('Lưu bài',self.save_project)]:
             ttk.Button(header,text=label,command=cmd).pack(side='right',padx=6,pady=18)
         main=ttk.Panedwindow(self,orient='horizontal'); main.pack(fill='both',expand=True,padx=14,pady=14)
-        nav=ttk.Frame(main,width=208); main.add(nav,weight=0)
-        ttk.Label(nav,text='CHỌN CHỨC NĂNG',font=('Segoe UI',10,'bold')).pack(anchor='w',pady=(3,12))
-        self.nav=tk.Listbox(nav,exportselection=False,activestyle='none',borderwidth=0,highlightthickness=0,
-                            bg='#f3f5f7',fg='#253f4d',selectbackground='#d1e7e3',selectforeground='#104b45',
-                            font=('Segoe UI',11),width=24,height=15)
-        for name in TOOLS:self.nav.insert('end',name)
-        self.nav.pack(fill='both',expand=True)
-        self.nav.bind('<<ListboxSelect>>',lambda e:self.select_tool(self.nav.get(self.nav.curselection()[0])) if self.nav.curselection() else None)
-        ttk.Label(nav,text='Nhập số thập phân bằng dấu chấm.\nCtrl+Enter: tính\nCtrl+S: lưu bài',foreground='#455c69',wraplength=200).pack(anchor='w',pady=16)
         input_panel=ttk.Frame(main,width=390); main.add(input_panel,weight=0)
-        self.title_label=ttk.Label(input_panel,text='',font=('Segoe UI',16,'bold')); self.title_label.pack(anchor='w',pady=(0,10))
+        self.title_label=ttk.Label(input_panel,text='Thông số',font=('Segoe UI',16,'bold')); self.title_label.pack(anchor='w',pady=(0,12))
+        ttk.Label(input_panel,text='CHỌN CHỨC NĂNG',font=('Segoe UI',10,'bold')).pack(anchor='w',pady=(0,5))
+        self.tool=tk.StringVar()
+        self.tool_combo=ttk.Combobox(input_panel,textvariable=self.tool,values=list(TOOLS),state='readonly',width=34)
+        self.tool_combo.pack(fill='x',pady=(0,10)); self.tool_combo.bind('<<ComboboxSelected>>',lambda e:self.select_tool(self.tool.get()))
+        ttk.Label(input_panel,text='PHƯƠNG PHÁP',font=('Segoe UI',10,'bold')).pack(anchor='w',pady=(0,5))
         self.method=tk.StringVar()
         self.combo=ttk.Combobox(input_panel,textvariable=self.method,state='readonly',width=34)
         self.combo.pack(fill='x',pady=(0,8)); self.combo.bind('<<ComboboxSelected>>',lambda e:self.show_form())
+        ttk.Separator(input_panel).pack(fill='x',pady=(2,8))
         scrollframe=ttk.Frame(input_panel); scrollframe.pack(fill='both',expand=True)
         self.form_canvas=tk.Canvas(scrollframe,bg='#f3f5f7',highlightthickness=0,width=370)
         scroll=ttk.Scrollbar(scrollframe,orient='vertical',command=self.form_canvas.yview)
@@ -229,8 +235,7 @@ class App(tk.Tk):
     def select_tool(self,name):
         if self.current_tool==name:return
         self.remember(); self.current_tool=name; self.current_method=None
-        self.combo.configure(values=TOOLS[name][0]); self.method.set(TOOLS[name][0][0]); self.title_label.configure(text=name)
-        i=list(TOOLS).index(name); self.nav.selection_clear(0,'end'); self.nav.selection_set(i)
+        self.tool.set(name); self.combo.configure(values=TOOLS[name][0]); self.method.set(TOOLS[name][0][0]); self.title_label.configure(text='Thông số')
         self.show_form(save=False)
 
     def show_form(self,save=True):
@@ -252,6 +257,8 @@ class App(tk.Tk):
             var=tk.StringVar(value=saved.get('values',{}).get(key,previous.get('values',{}).get(key,default))); self.form[key]=var
             if key=='direction':
                 ttk.Combobox(self.form_body,textvariable=var,values=['Tiến','Lùi'],state='readonly').pack(fill='x',padx=(0,8))
+            elif key=='newton_nodes':
+                ttk.Combobox(self.form_body,textvariable=var,values=['Mốc cách đều','Mốc bất kỳ'],state='readonly').pack(fill='x',padx=(0,8))
             else: ttk.Entry(self.form_body,textvariable=var).pack(fill='x',padx=(0,8))
             if hint:ttk.Label(self.form_body,text=hint,foreground='#4c626e',wraplength=350,font=('Segoe UI',9)).pack(anchor='w',pady=(2,0))
         needs_data=TOOLS[self.current_tool][1]
@@ -387,12 +394,16 @@ class App(tk.Tk):
         if not path:return
         try:
             state=json.loads(Path(path).read_text(encoding='utf-8'))
+            if state.get('tool')=='Newton':
+                state['tool']='Nội suy đa thức'
+                state['values']={**state.get('values',{}),'newton_nodes':state.get('method','Mốc cách đều')}
+                state['method']='Newton'
             if state['tool'] not in TOOLS or state['method'] not in TOOLS[state['tool']][0] or not isinstance(state['values'],dict):raise ValueError('Tệp không đúng cấu trúc bài tính PPS.')
             self.remember();self.cache[(state['tool'],state['method'])]=state
             # Bypass remembering an older form over the imported state.
             self.current_tool=state['tool']; self.current_method=state['method']
-            self.combo.configure(values=TOOLS[self.current_tool][0]);self.method.set(self.current_method);self.title_label.configure(text=self.current_tool)
-            self.nav.selection_clear(0,'end');self.nav.selection_set(list(TOOLS).index(self.current_tool));self.show_form(save=False)
+            self.tool.set(self.current_tool);self.combo.configure(values=TOOLS[self.current_tool][0]);self.method.set(self.current_method);self.title_label.configure(text='Thông số')
+            self.show_form(save=False)
             self.status.set('Đã mở bài tính. Nhấn Tính kết quả để chạy.')
         except Exception as exc:messagebox.showerror('Không mở được bài',str(exc),parent=self)
 

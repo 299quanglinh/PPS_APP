@@ -107,10 +107,11 @@ PPS_APP/
 │   └── math_view.py            # Dựng công thức MathText LaTeX và xuất báo cáo HTML
 ├── examples/                   # Các ví dụ mẫu (.json) cho từng phương pháp
 ├── tests/                      # Bộ kiểm thử tự động (Unit tests & GUI tests)
+├── data/                       # Dữ liệu bài tập đã trích xuất
+├── output/                     # Báo cáo, ảnh lời giải và kết quả chạy bài tập
 ├── CAI_DAT.bat                 # Script cài đặt môi trường tự động
 ├── CHAY_PPS.bat                # Script chạy nhanh ứng dụng
 ├── KIEM_TRA.bat                # Script chạy kiểm thử độ chính xác
-├── HUONG_DAN.md                # Tài liệu hướng dẫn sử dụng chi tiết
 ├── main.py                     # Điểm khởi động ứng dụng
 ├── requirements.txt            # Danh sách thư viện Python cần thiết
 └── README.md                   # Tài liệu giới thiệu dự án
@@ -128,4 +129,4 @@ Hoặc qua dòng lệnh:
 ```bash
 python -m unittest discover tests
 ```
-Bộ kiểm thử gồm 25 kịch bản kiểm tra toàn diện: tái lập đa thức chuẩn, tính chính xác các phương pháp tích phân, tính ổn định của ODE và kiểm tra tải/xuất dữ liệu Excel/CSV.
+Bộ kiểm thử kiểm tra tái lập đa thức chuẩn, các phương pháp tích phân, ODE, cách trình bày và tải/xuất dữ liệu Excel/CSV.
