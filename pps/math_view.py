@@ -289,6 +289,9 @@ def text_math(text):
     """Only convert known generated mathematical cells; never evaluate free prose."""
     s=str(text).strip()
     if not s:return None
+    if re.fullmatch(r'[-+]?\d+(\.\d+)?[Ee][-+]?\d+',s):
+        mantissa,exponent=re.split('[Ee]',s)
+        return mantissa+r'\times10^{'+str(int(exponent))+'}'
     if re.fullmatch(r'[-+0-9.eE ]+',s):return s
     if re.fullmatch(r'[0-9xyzt()+*/^ .\-]+',s) and re.search('[xyzt]',s):
         s=re.sub(r'\^(-?\d+)',r'^{\1}',s).replace('*',r'\,')
@@ -297,6 +300,10 @@ def text_math(text):
            'hệ số lẻ':r'a_{2i+1}','hệ số chẵn':r'a_{2i}','trọng số':r'w_i',
            'f(x)':r'f(x_i)','t trước':r't_{k-1}','t sau':r't_k','độ lệch':r'|t_k-t_{k-1}|'}
     if s in known:return known[s]
+    if s in ('x_i','y_i','t_j','x_j'):return s
+    if re.fullmatch(r'[Δ∇]\^\d+ y_i',s):
+        symbol=r'\nabla' if s.startswith('∇') else r'\Delta'
+        return symbol+'^{'+s.split('^')[1].split()[0]+r'}y_i'
     if re.fullmatch(r'[a-z]_\{[0-9a-z+\-]+\}',s):return s
     if re.fullmatch(r'bậc \d+',s):return 't^{'+s.split()[-1]+'}'
     if re.fullmatch(r'[a-zA-Z0-9().+*/^ _\-]+',s):
@@ -378,7 +385,11 @@ class MathDocument(ttk.Frame):
         self.begin();self.text.insert('end',report.title+'\n','title')
         if report.presentation.get('blocks'):
             for kind,value in report.presentation['blocks']:
-                if kind=='formula':self.picture(math_image(value))
+                if kind=='formula':
+                    im=math_image(value,report.presentation.get('math_size',14))
+                    padded=Image.new('RGBA',(im.width+24,im.height+16),(255,255,255,0))
+                    padded.paste(im,(12,8))
+                    self.picture(padded)
                 elif kind=='table':
                     self.text.insert('end',report.tables[value][0]+'\n','heading')
                     self.picture(table_image(report,value))
