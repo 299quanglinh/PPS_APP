@@ -13,7 +13,7 @@
   - Không còn chặn 100 mốc: bảng lớn giữ dạng tích và dùng số thập phân với độ chính xác tăng theo dữ liệu; đã kiểm tra Stirling 501 mốc.
   - Ô **Số mốc dùng** cho phép chọn K mốc quanh điểm tính từ toàn bộ bảng; để trống để dùng toàn bảng. Stirling dùng số lẻ; Bessel dùng số chẵn.
   - Bảng sai phân so le và bảng tích bậc giảm dần theo đúng chuẩn bài giảng.
-- **Nội suy ngược**: Lặp tiến/lùi với tiêu chuẩn dừng thực hành; nhánh lặp có kiểm tra co trên đoạn nhập; nội suy bảng đảo và chia đôi nghiệm đa thức thuận.
+- **Nội suy ngược**: Lặp Newton tiến/lùi quét toàn bảng, tự chọn đúng n+1 mốc theo hướng, chứng nhận hội tụ và dừng theo chặn sai số vị trí. Bài giải gồm bảng sai phân, công thức, đoạn lặp, bảng lặp và đánh giá sai số. Nội suy bảng đảo và chia đôi nằm trong nhóm **Nội suy ngược — cách khác**.
 - **Đường cong Spline**: Tuyến tính, bậc hai có đạo hàm biên, bậc ba với biên tự nhiên/kẹp/cấp hai/tuần hoàn/not-a-knot; bậc bốn với ba đạo hàm đầu trái.
 - **Hồi quy bình phương tối thiểu (Least Squares)**:
   - Đa thức bậc tùy ý, hàm lũy thừa ($y = a x^b$), hàm mũ ($y = a e^{bx}$), hoặc tổ hợp hàm cơ sở tự chọn.

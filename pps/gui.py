@@ -26,7 +26,8 @@ TOOLS={
  'Nội suy đa thức':(['Lagrange','Newton','Gauss I','Gauss II','Stirling','Bessel'],True),
   'Spline':(['Tuyến tính','Bậc hai — biên trái','Bậc hai — biên phải','Cubic tự nhiên','Cubic kẹp','Cubic đạo hàm bậc hai','Cubic tuần hoàn','Cubic not-a-knot','Bậc 4 — đạo hàm trái'],True),
   'Bình phương tối thiểu':(['Tuyến tính theo cơ sở','Lũy thừa','Hàm mũ','Lũy thừa — SSE thang y','Hàm mũ — SSE thang y'],True),
-  'Nội suy ngược':(['Lặp tiến','Lặp lùi','Lặp có cận co','Hàm ngược','Chia đôi đa thức'],True),
+  'Nội suy ngược':(['Lặp tiến','Lặp lùi'],True),
+  'Nội suy ngược — cách khác':(['Hàm ngược','Chia đôi đa thức'],True),
  'Chọn mốc':(['Mốc cách đều','Mốc nội suy ngược','Chebyshev'],True),
  'Đạo hàm & Horner':(['Đạo hàm từ bảng','Horner'],True),
  'Tích phân':(['Hình thang','Simpson','Trung điểm','Newton-Cotes','Tích phân kép'],False),
@@ -56,12 +57,17 @@ def fields(tool,method):
         if 'SSE thang y' in method:
             return v+[F('initial','Tham số đầu A b1 b2... (để trống: tự chọn)','','Tối ưu phi tuyến; cần thử giá trị đầu khác nếu nhạy.')]
         return v+[F('weights','Trọng số w_i (để trống: tất cả bằng 1)','','Cùng số phần tử và thứ tự với dữ liệu.')]
-    if tool=='Nội suy ngược':
+    if tool in ('Nội suy ngược','Nội suy ngược — cách khác'):
         v=[F('target','Giá trị y cần tìm ngược',1.3225)]
         if method=='Hàm ngược':return v+[F('count','Số mốc trên nhánh (để trống: tất cả)','','Chọn nhánh đơn điệu trước khi nhập.')]
         if method=='Chia đôi đa thức':return v+[F('a','Cận trái',1),F('b','Cận phải',1.4),F('tol','Dung sai vị trí',1e-10)]
         if method=='Lặp có cận co':return v+[F('a','Đầu khoảng J',1.1),F('b','Cuối khoảng J',1.2),F('tol','Dung sai vị trí',1e-10),F('residual_tol','Dung sai phần dư',1e-10),F('direction','Hướng nội suy','Tiến')]
-        return v+[F('tol','Dung sai lặp',1e-10)]
+        return v+[F('degree','Bậc nội suy n (dùng n+1 mốc)',2,'Quét toàn bảng; tiến lấy mốc về phải, lùi lấy về trái. Thiếu mốc sẽ ghi trạng thái.'),
+                  F('tol','Sai số lặp cho phép của x',1e-8),
+                  F('max_steps','Số bước tối đa mỗi nhánh',200),
+                  F('alpha','Đầu đoạn I theo t (có thể để trống)','','Để trống cả hai: thử đoạn chuẩn rồi các đoạn nhỏ chứa t0.'),
+                  F('beta','Cuối đoạn I theo t (có thể để trống)','','Tiến: I trong [0,1]; lùi: I trong [-1,0]. Áp dụng cho mọi nhánh.')]
+
     if tool=='Chọn mốc':
         if method=='Chebyshev': return [F('degree','Bậc đa thức n (sinh n+1 mốc)',4),F('a','Đầu đoạn a',-1),F('b','Cuối đoạn b',1)]
         return [F('target','Giá trị y' if method=='Mốc nội suy ngược' else 'Điểm x',1.5)]+([] if method=='Mốc nội suy ngược' else [F('count','Số mốc cần lấy',3)])
@@ -129,7 +135,7 @@ def dispatch(tool,method,values,xtext,ytext):
             return ch1.original_scale_fit(*data(),original,labels,initial)
         weights=numbers(values['weights']) if values.get('weights','').strip() else None
         return ip.least_squares(*data(),method,[v.strip() for v in values.get('basis','1;x').split(';') if v.strip()],weights)
-    if tool=='Nội suy ngược':
+    if tool in ('Nội suy ngược','Nội suy ngược — cách khác'):
         x,y=data();target=num('target')
         if method=='Hàm ngược':return ch1.inverse_by_swap(x,y,target,integer('count') if values.get('count','').strip() else None)
         if method=='Chia đôi đa thức':
@@ -138,7 +144,10 @@ def dispatch(tool,method,values,xtext,ytext):
         if method=='Lặp có cận co':
             return ch1.inverse_controlled(x,y,target,(num('a'),num('b')),
                                           values.get('direction','Tiến')=='Lùi',num('tol'),num('residual_tol'))
-        return ip.inverse(x,y,target,method=='Lặp lùi',num('tol'))
+        if method not in ('Lặp tiến','Lặp lùi'):raise ValueError('Chọn Lặp tiến hoặc Lặp lùi.')
+        from .inverse_workflow import iteration_workflow
+        return iteration_workflow(x,y,target,method=='Lặp lùi',integer('degree',2),num('tol',1e-8),
+                                  integer('max_steps',200),optional('alpha'),optional('beta'))
     if tool=='Chọn mốc':
         if method=='Chebyshev': return ip.chebyshev(integer('degree'),num('a'),num('b'))
         return ip.select_points(*data(),num('target'),integer('count',3),method=='Mốc nội suy ngược')
@@ -436,6 +445,11 @@ class App(tk.Tk):
                 state['tool']='Nội suy đa thức'
                 state['values']={**state.get('values',{}),'newton_nodes':state.get('method','Mốc cách đều')}
                 state['method']='Newton'
+            if state.get('tool')=='Nội suy ngược':
+                if state.get('method') in ('Hàm ngược','Chia đôi đa thức'):
+                    state['tool']='Nội suy ngược — cách khác'
+                elif state.get('method')=='Lặp có cận co':
+                    state['method']='Lặp lùi' if state.get('values',{}).get('direction')=='Lùi' else 'Lặp tiến'
             if state['tool'] not in TOOLS or state['method'] not in TOOLS[state['tool']][0] or not isinstance(state['values'],dict):raise ValueError('Tệp không đúng cấu trúc bài tính PPS.')
             self.remember();self.cache[(state['tool'],state['method'])]=state
             # Bypass remembering an older form over the imported state.

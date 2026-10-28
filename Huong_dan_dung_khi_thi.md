@@ -115,3 +115,19 @@ print(nhanh, nghiem, khoang)
 - Hệ số trong `numpy.polynomial.Polynomial.coef` theo **bậc tăng**; giao diện Horner hiện nhập **bậc giảm**. Với dạng `t=(x−x_c)/h`, đạo hàm cấp r theo x có hệ số `h⁻ʳ`.
 - Mốc trùng phải xử lý ở dữ liệu gốc. Mô hình log cần kiểm tra dấu và miền; spline bậc p cần `p−1` điều kiện bổ sung. Ngoại suy phải ghi rõ.
 - Khi đề hỏi thuật toán hoặc chứng minh, chép đầu vào, đầu ra, công thức chỉ số, vòng lặp, điều kiện dừng và giả thiết từ PDF. Kết quả chạy code chỉ là phần số.
+
+
+## Phương pháp lặp nội suy ngược (quét toàn bảng)
+
+Trong nhóm **Nội suy ngược**, chọn **Lặp tiến** hoặc **Lặp lùi**. Nhập bảng đầy đủ, mức y cần tìm, bậc n (dùng n+1 mốc), sai số lặp cho phép và số bước tối đa. App quét các mốc trùng mức và khoảng đổi dấu; mỗi khoảng được xử lý riêng. Tiến lấy x_k làm gốc và n+1 mốc về phải; lùi lấy x_(k+1) làm gốc và n+1 mốc về trái. Không đủ mốc thì app ghi trạng thái, không tự giảm bậc.
+
+Để trống hai đầu I: app thử đoạn chuẩn [0,1] cho tiến hoặc [-1,0] cho lùi rồi thử các đoạn nhỏ chứa t0. Có thể nhập I theo biến t để kiểm tra đoạn tự chọn. Đây là chặn trên cả đoạn, không phải kiểm tra vài điểm. Nếu chưa chứng nhận được, app vẫn tiếp tục các nhánh khác và ghi lý do cho nhánh đó.
+
+Bài giải hiển thị: quét khoảng → chọn mốc/bảng sai phân → lập công thức → kiểm tra hội tụ → bảng lặp → kết quả và chặn sai số. Sai số chỉ áp dụng cho nghiệm đa thức nội suy đã chọn. Hàm ngược và chia đôi được đặt trong nhóm **Nội suy ngược — cách khác**.
+
+Thử bảng 20251 đã gửi: mức -1.43, bậc 2, sai số 1e-8, chọn Lặp tiến. Kết quả khoảng 2.566047358472 sau 8 bước. Tiến và lùi có thể dùng bộ mốc khác nhau nên không bắt buộc cho cùng đa thức/kết quả.
+
+
+Ký hiệu trong bài giải được viết riêng theo từng hướng: tiến dùng x_k, y_k, Δy_k và φ(t); lùi dùng x_(k+1), y_(k+1), ∇y_(k+1) và ψ(t). Bảng sai phân lùi chụm xuống dưới; hệ số nằm trên hàng cuối. Chỉ số k là vị trí khoảng trong bảng, chỉ số j là bước lặp. Phần đánh giá sai số có chặn tiên nghiệm/hậu nghiệm, so sánh bước cuối với epsilon và phân biệt sai số giải đa thức với sai số hàm gốc.
+
+Có thể mở bài mẫu `examples/13_lap_nguoc_20251.json` trong app; bản này dùng một đoạn dữ liệu 20251 quanh mức -1.43. App nhập toàn bảng cũng tự quét và chọn đúng bộ mốc cục bộ.
