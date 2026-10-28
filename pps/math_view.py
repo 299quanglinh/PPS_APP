@@ -154,7 +154,8 @@ def difference_model(method,x,y,a,center):
     order=[0]*n
     if method in ('Gauss I','Gauss II'):
         indices=[center]
-        for r in range(1,center+1):indices.extend([center+r,center-r] if method=='Gauss I' else [center-r,center+r])
+        for r in range(1,n):
+            indices.extend(j for j in ([center+r,center-r] if method=='Gauss I' else [center-r,center+r]) if 0<=j<n)
         for rank,j in enumerate(indices,1):order[j]=rank
     return dict(method=method,x=list(x),y=list(y),a=a,offset=offset,selected=selected,order=order)
 
@@ -235,7 +236,7 @@ def interpolation_presentation(result,method,x,y,a,q,p,origin,h,center,normalize
     if method not in ('Newton tiến','Newton lùi'):
         formulas.append(('Đa thức theo biến x',split_equation('P(x)',poly_latex(p))))
     if target is not None:
-        val=q.deriv(derivative)((target-origin)/h)/h**derivative if normalized else p.deriv(derivative)(target)
+        val=result.value.deriv(derivative)(target)
         label='P' if derivative==0 else "P'" if derivative==1 else "P''" if derivative==2 else rf'P^{{({derivative})}}'
         formulas.append(('Thay giá trị',[rf'{label}({fmt(target)})={fmt(val)}']))
     result.presentation=dict(formulas=formulas,

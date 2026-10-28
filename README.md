@@ -10,12 +10,14 @@
 - **Đa thức nội suy**:
   - Lagrange, Newton (mốc bất kỳ qua tỷ sai phân, mốc cách đều tiến / lùi).
   - Nội suy trung tâm: Gauss I, Gauss II, Stirling, Bessel (hỗ trợ ký hiệu chuẩn $t$, $h$, $x_0$).
+  - Không còn chặn 100 mốc: bảng lớn giữ dạng tích và dùng số thập phân với độ chính xác tăng theo dữ liệu; đã kiểm tra Stirling 501 mốc.
+  - Ô **Số mốc dùng** cho phép chọn K mốc quanh điểm tính từ toàn bộ bảng; để trống để dùng toàn bảng. Stirling dùng số lẻ; Bessel dùng số chẵn.
   - Bảng sai phân so le và bảng tích bậc giảm dần theo đúng chuẩn bài giảng.
-- **Nội suy ngược**: Tìm nghiệm theo phương pháp lặp tiến/lùi, tự động kiểm tra điều kiện đơn điệu và hội tụ.
-- **Đường cong Spline**: Tuyến tính (Linear), Bậc hai (Quadratic biết đạo hàm biên), Bậc ba (Cubic Natural, Clamped hoặc biết đạo hàm bậc hai).
+- **Nội suy ngược**: Lặp tiến/lùi với tiêu chuẩn dừng thực hành; nhánh lặp có kiểm tra co trên đoạn nhập; nội suy bảng đảo và chia đôi nghiệm đa thức thuận.
+- **Đường cong Spline**: Tuyến tính, bậc hai có đạo hàm biên, bậc ba với biên tự nhiên/kẹp/cấp hai/tuần hoàn/not-a-knot; bậc bốn với ba đạo hàm đầu trái.
 - **Hồi quy bình phương tối thiểu (Least Squares)**:
   - Đa thức bậc tùy ý, hàm lũy thừa ($y = a x^b$), hàm mũ ($y = a e^{bx}$), hoặc tổ hợp hàm cơ sở tự chọn.
-  - Tự động chuẩn hóa/dịch dữ liệu và giải hệ bằng phân tích SVD ổn định.
+  - Hỗ trợ trọng số dương và giải bình phương tối thiểu bằng SVD. Mô hình log kiểm tra miền xác định, không tự dịch dữ liệu.
 - **Đa thức Chebyshev & Sơ đồ Horner**:
   - Sinh $n+1$ mốc Chebyshev tối ưu trên đoạn $[a, b]$.
   - Thuật toán Horner tính giá trị đa thức và các cấp đạo hàm.
@@ -34,7 +36,7 @@
   - Phương pháp Hình thang (Trapezoidal ODE).
   - Họ Runge-Kutta: RK2 (Euler cải tiến, Heun), RK3, RK4 cổ điển, RK tham số.
   - Phương pháp đa bước Adams: Adams-Bashforth (dự báo) kết hợp Adams-Moulton (hiệu chỉnh) từ cấp 2 đến cấp 5.
-  - Bảng Butcher tùy biến: Cho phép nhập bảng Butcher tổng quát dạng ma trận.
+  - Bảng Butcher tùy biến cho phương pháp Runge–Kutta hiện (ma trận tam giác dưới nghiêm ngặt).
 
 ### 4. Bài toán biên (BVP) & Bài toán trị riêng
 - **Bài toán biên cấp 2**: Giải phương trình dạng $[p(x)u']' - q(x)u = -f(x)$ với các loại điều kiện biên:
@@ -55,6 +57,10 @@
 ### Cách 1: Khởi chạy nhanh trên Windows (Khuyên dùng)
 1. **Lần đầu tiên**: Nhấp đúp vào **`CAI_DAT.bat`** để tạo môi trường ảo `.venv` và tự động cài đặt các thư viện cần thiết.
 2. **Sử dụng**: Nhấp đúp vào **`CHAY_PPS.bat`** để mở ứng dụng.
+
+Để chạy không cần cửa sổ Tk, dùng `CHAY_CONSOLE.bat examples\02_bessel.json` hoặc `.venv\Scripts\python.exe exam_cli.py examples\02_bessel.json`. Chuẩn bị thư viện trước khi ngắt mạng. Xem [hướng dẫn dùng khi thi](Huong_dan_dung_khi_thi.md), [báo cáo kiểm định](Bao_cao_kiem_dinh.md) và [bảng bao phủ](Bao_phu_kien_thuc.csv).
+
+Đợt kiểm tra các thuật toán còn lại và các lỗi đã sửa ở ODE, biên Robin, trị riêng, spline, hồi quy và tích phân được ghi trong [kiểm định thuật toán khác](Kiem_dinh_thuat_toan_khac.md).
 
 ### Cách 2: Khởi chạy thủ công bằng dòng lệnh
 ```bash

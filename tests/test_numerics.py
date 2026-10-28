@@ -44,7 +44,8 @@ class InterpolationTests(unittest.TestCase):
         assert_allclose(ip.interpolate([2,3],[5,7],'Bessel').value([2,2.5,3]),[5,6,7])
         for method,x in [('Stirling',[0,1]),('Bessel',[0,1,2]),('Newton tiến',[0,1,3])]:
             with self.assertRaises(ValueError):ip.interpolate(x,x,method)
-        x,y,d=points([2,0,2,1],[4,0,99,1]);assert_allclose(y,[0,1,4]);self.assertEqual(d,1)
+        with self.assertRaises(ValueError):points([2,0,2,1],[4,0,99,1])
+        x,y,d=points([2,0,1],[4,0,1]);assert_allclose(y,[0,1,4]);self.assertEqual(d,0)
 
     def test_inverse(self):
         x=np.linspace(1,1.4,5)
@@ -65,9 +66,8 @@ class InterpolationTests(unittest.TestCase):
         for kind,y,basis in [('Tuyến tính theo cơ sở',1+2*x+3*x*x,['1','x','x^2']),
                               ('Lũy thừa',2*x**1.3,['1']),('Hàm mũ',-2*np.exp(.3*x),['x'])]:
             r=ip.least_squares(x,y,kind,basis);assert_allclose(r.value(x),y,rtol=1e-10)
-        # Mixed signs must still produce a finite back-transformed fit.
-        r=ip.least_squares([-1,0,1,2],[-2,-1,1,4],'Lũy thừa')
-        self.assertTrue(np.all(np.isfinite(r.value(np.array([-1,0,1,2])))))
+        # Dịch dữ liệu ngầm làm đổi mô hình; đầu vào ngoài miền phải báo lỗi.
+        with self.assertRaises(ValueError):ip.least_squares([-1,0,1,2],[-2,-1,1,4],'Lũy thừa')
 
     def test_select_chebyshev_horner(self):
         r=ip.select_points(np.arange(7),np.arange(7)**2,3.2,3)
@@ -152,7 +152,7 @@ class InputTests(unittest.TestCase):
         for expr in ["__import__('os')",'x.__class__','open(x)','[x][0]','10^10000']:
             with self.assertRaises(ValueError):function(expr)
         with self.assertRaises(ValueError):function('sqrt(x)')(-1)
-        self.assertEqual(fmt(-1e-12),'0')
+        self.assertEqual(fmt(-1e-12),'-1e-12')
 
 
 if __name__=='__main__':unittest.main()

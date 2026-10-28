@@ -2,6 +2,7 @@
 import json
 import tempfile
 import time
+import tkinter as tk
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -12,7 +13,9 @@ from pps.gui import App, TOOLS, dispatch
 class GuiTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.app=App();cls.app.withdraw()
+        try:cls.app=App();cls.app.withdraw()
+        except tk.TclError as exc:
+            raise unittest.SkipTest(f'Không có môi trường Tcl/Tk dùng được: {exc}') from exc
 
     @classmethod
     def tearDownClass(cls):cls.app.close()

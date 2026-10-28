@@ -1,0 +1,15 @@
+{
+  "tool": "Tích phân",
+  "method": "Simpson",
+  "values": {
+    "source": "Hàm",
+    "expr": "cos(40*pi*x)",
+    "a": "0",
+    "b": "1",
+    "n": "10",
+    "tol": "1e-8",
+    "bound": ""
+  },
+  "x": "",
+  "y": ""
+}

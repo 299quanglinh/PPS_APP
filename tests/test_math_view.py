@@ -34,7 +34,7 @@ class MathViewTests(unittest.TestCase):
         self.assertEqual(name,'Các bước lập đa thức Lagrange')
         self.assertEqual(headers,['Cột 0','Cột 1','Cột 2','Cột 3','Ghi chú'])
         notes=[row[-1] for row in rows]
-        self.assertIn('Ma trận (x_j - x_i)',notes)
+        self.assertIn('Ma trận (x_i - x_j)',notes)
         self.assertIn('Bảng tích',notes)
         self.assertIn('Bảng thương W_i = w_(n+1)/(x-x_i)',notes)
         self.assertIn('Hệ số đa thức nội suy P(x)',notes)
